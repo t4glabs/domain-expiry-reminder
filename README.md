@@ -669,32 +669,33 @@ $ which python3
 ```
 Typical output on Ubuntu VPS: `/usr/bin/python3`
 
-### Step 2 — Make the script executable
+### Step 2 — Verify it runs
 
 ```console
-$ chmod +x /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py
+$ /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -h
 ```
 
-### Step 3 — Verify it runs
+### Step 3 — Open the crontab editor
+
+> **Note:** Use `crontab -e` when logged in as the user who will run the job.
+> `crontab -u username -e` is only needed if you are logged in as a *different* user (e.g. root setting a cron for ubuntu).
+> Since this setup runs as **root**, just use `crontab -e`.
 
 ```console
-$ /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -h
-```
-
-### Step 4 — Open the crontab editor
-
-```console
-$ crontab -u ubuntu -e
+$ crontab -e
 ```
 
 To use nano instead of vim:
 ```console
-$ EDITOR=nano crontab -u ubuntu -e
+$ EDITOR=nano crontab -e
 ```
 
-### Step 5 — Add one of the crontab lines below
+### Step 4 — Add one of the crontab lines below
 
 Do **not** use `-c` (print to console) or `-l` (long format) in cron — they produce no useful output when redirected to `/dev/null`.
+
+> **Important:** Use the **venv Python path** (`venv/bin/python3`), not the system `python3`.
+> The system Python does not have the installed dependencies.
 
 ---
 
@@ -709,16 +710,16 @@ Do **not** use `-c` (print to console) or `-l` (long format) in cron — they pr
 
 ---
 
-#### Option A — Google Chat only (recommended)
+#### Option A — Google Chat only
 
 ```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -ee -i 10 >/dev/null 2>&1
+0 0 */3 * * /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/aikyam.txt -g -ee -i 10 >/dev/null 2>&1
 ```
 
 #### Option B — Telegram only
 
 ```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -t -trim -split -ee -i 10 >/dev/null 2>&1
+0 0 */3 * * /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/aikyam.txt -t -trim -split -ee -i 10 >/dev/null 2>&1
 ```
 
 #### Option C — Email only (Gmail / Mailgun via .env)
@@ -726,46 +727,40 @@ Do **not** use `-c` (print to console) or `-l` (long format) in cron — they pr
 Requires `EMAIL_TO`, `SMTP_*`, `ENABLE_EMAIL_STARTTLS=true`, `ENABLE_EMAIL_AUTH=true` set in `.env`.
 
 ```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -ee -i 10 >/dev/null 2>&1
-```
-
-Or passing email flags explicitly:
-
-```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -e you@gmail.com -starttls -auth -ee -i 10 >/dev/null 2>&1
+0 0 */3 * * /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/aikyam.txt -ee -i 10 >/dev/null 2>&1
 ```
 
 #### Option D — All three (Email + Telegram + Google Chat)
 
 ```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -t -trim -split -e you@gmail.com -starttls -auth -ee -i 10 >/dev/null 2>&1
+0 0 */3 * * /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/aikyam.txt -g -t -trim -split -ee -i 10 >/dev/null 2>&1
 ```
 
 #### Option E — Log to file instead of /dev/null (useful for debugging)
 
 ```
-0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -ee -i 10 >> /var/log/domain-check.log 2>&1
+0 0 */3 * * /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/aikyam.txt -g -ee -i 10 >> /var/log/domain-check.log 2>&1
 ```
 
 ---
 
-### Step 6 — Verify your crontab was saved
+### Step 5 — Verify your crontab was saved
 
 ```console
-$ crontab -u ubuntu -l
+$ crontab -l
 ```
 
 ### Useful crontab commands
 
 ```console
 # View current crontab
-$ crontab -u ubuntu -l
+$ crontab -l
 
 # Edit crontab
-$ crontab -u ubuntu -e
+$ crontab -e
 
-# Remove all cron jobs for the user
-$ crontab -u ubuntu -r
+# Remove all cron jobs
+$ crontab -r
 ```
 
 Note: [cron](https://en.wikipedia.org/wiki/Cron)
