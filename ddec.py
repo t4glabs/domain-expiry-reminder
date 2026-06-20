@@ -484,7 +484,7 @@ def whois_check() -> None:
     else:
         delemiter: str = ':'
         s_path: str = 'PATH'
-    os_env_path = os.environ.get(s_path).split(delemiter)
+    os_env_path = (os.environ.get(s_path) or '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin').split(delemiter)
     for item in os_env_path:
         str_tmp = item
         if str_tmp != '':
