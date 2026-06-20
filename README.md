@@ -764,6 +764,92 @@ $ crontab -r
 ```
 
 Note: [cron](https://en.wikipedia.org/wiki/Cron)
+
+### Step 6 — Verify cron is actually running
+
+#### Check the system log
+
+After the scheduled time passes, confirm cron executed the job:
+
+```console
+$ grep CRON /var/log/syslog | tail -20
+```
+
+You should see lines like:
+```
+Jun 20 00:00:01 hostname CRON[12345]: (root) CMD (/root/domain-expiry-reminder/venv/bin/python3 ...)
+```
+
+If no line appears, cron did not run — double-check `crontab -l` and the schedule format.
+
+#### Redirect output to a log file (instead of /dev/null)
+
+The easiest way to see what went wrong is to capture output:
+
+```console
+# Temporarily change your crontab line from:
+>/dev/null 2>&1
+# to:
+>> /var/log/domain-check.log 2>&1
+```
+
+Then after it runs:
+```console
+$ cat /var/log/domain-check.log
+```
+
+#### Simulate the cron environment on the command line
+
+Cron strips all environment variables (PATH, HOME, etc.). To reproduce the exact cron environment and debug locally:
+
+```console
+$ cd /root/domain-expiry-reminder && env -i HOME=/root /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/testing.txt -t -ee -i 3 -x 9999
+```
+
+Key points:
+- `env -i` clears all environment variables (just like cron does)
+- `HOME=/root` is the only variable cron sets by default
+- If this command fails, your cron will fail too — fix it here first
+
+#### Force a test notification with `-x 9999`
+
+The `-x 9999` flag tells the script to send a notification for any domain expiring within 9999 days — so it fires even if all your domains are freshly registered:
+
+```console
+$ /root/domain-expiry-reminder/venv/bin/python3 /root/domain-expiry-reminder/ddec_rdap.py -nb -f /root/domain-expiry-reminder/testing.txt -t -ee -i 3 -x 9999
+```
+
+If Telegram and/or email arrive — your config works.
+
+#### Create a small test file for quick iteration
+
+Instead of running against 50+ domains, create a `testing.txt` with 2-3 domains for fast debugging:
+
+```console
+$ cat > /root/domain-expiry-reminder/testing.txt << 'EOF'
+yourdomain.com
+yourdomain.org
+EOF
+```
+
+Once everything works, switch back to your real domain file.
+
+#### Check for stacked processes
+
+If the cron job runs while a previous one is still running (e.g. 65 domains taking longer than the schedule interval), processes can pile up:
+
+```console
+# Check if any processes are still running
+$ ps aux | grep ddec_rdap
+
+# Kill all of them if needed
+$ pkill -f ddec_rdap.py
+```
+
+For large domain lists (50+), using `-i 10` (10-second interval) means the job can take 10+ minutes. Make sure your cron schedule allows enough time between runs.
+
+---
+
 ## How to add a script to Microsoft Windows Task Scheduler
 Ask for help to [documentation](https://docs.microsoft.com/en-us/windows/desktop/taskschd/schtasks)
 
