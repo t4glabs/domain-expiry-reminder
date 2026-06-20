@@ -805,6 +805,8 @@ def calculate_expiration_days(expiration_date: datetime) -> int:
     :return: int
     """
     try:
+        if expiration_date.tzinfo is not None:
+            expiration_date = expiration_date.replace(tzinfo=None)
         domain_expire = expiration_date - datetime.now()
     except Exception as e:
         print(f'{FLR}Unable to calculate the expiration days.\nError: {str(e)}')
