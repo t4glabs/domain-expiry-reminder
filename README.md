@@ -36,6 +36,44 @@ If you are here, it is possible that your domain has expired and you have coped 
 The script requires **Python version 3.6 or higher**.
 Of course, you need to install it yourself first [Python](https://www.python.org/). On Linux, it is usually already installed. If not, install it, for example:
 
+### Ubuntu / Debian VPS (recommended setup)
+
+Modern Ubuntu (23.04+) uses an externally managed Python environment, so a direct `pip install` will fail with an `externally-managed-environment` error. Use a **virtual environment** instead:
+
+```console
+$ cd ~/domain-expiry-reminder
+
+# Create the virtual environment (only once)
+$ python3 -m venv venv
+
+# Activate it (do this every time you open a new terminal session)
+$ source venv/bin/activate
+
+# Install dependencies
+$ pip install -r requirements.txt
+```
+
+Your prompt will show `(venv)` when the environment is active. You must activate it before running the script manually:
+
+```console
+$ source venv/bin/activate
+$ python3 ddec_rdap.py -h
+```
+
+For **cron**, skip activation and point directly to the venv Python:
+```
+/root/domain-expiry-reminder/venv/bin/python3 ddec_rdap.py ...
+```
+
+### Set up your .env file
+
+```console
+$ cp .env.example .env
+$ nano .env
+```
+
+Fill in your credentials (Telegram token, email settings, etc.). See `.env.example` for all available options.
+
 ```console
 $ sudo yum install python3
 $ sudo dnf install python3
@@ -591,6 +629,36 @@ Samples:
 ```
 
 If --expire-days (or a similar value in the file of domain name lists) is 60 days, then 81 days before the end of the domain registration period (60 + 21), this domain will be in the "Soon" category.
+
+## Testing notifications before going to cron
+
+Before setting up cron, always verify notifications are working manually. The script only sends a report when a domain is actually expiring or has an error — so if all your domains are healthy, you'll get nothing.
+
+Use `-x 9999` to set the expiry threshold to 9999 days, which forces every domain to appear as "expiring soon" and triggers a notification regardless:
+
+**Test Telegram:**
+```console
+$ python3 ddec_rdap.py -d yourdomain.com -t -c -nb -x 9999
+```
+
+**Test Email:**
+```console
+$ python3 ddec_rdap.py -d yourdomain.com -c -nb -x 9999
+```
+
+**Test Google Chat:**
+```console
+$ python3 ddec_rdap.py -d yourdomain.com -g -c -nb -x 9999
+```
+
+**Test all three at once:**
+```console
+$ python3 ddec_rdap.py -d yourdomain.com -t -g -c -nb -x 9999
+```
+
+The `-c` flag prints output to the console so you can see errors immediately. Remove it once everything is confirmed working.
+
+---
 
 ## How to add a script to Linux cron
 
