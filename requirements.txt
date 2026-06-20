@@ -1,5 +1,6 @@
 colorama
 exrex
 python-dateutil
+python-dotenv
 python-whois
 requests[socks]

@@ -1,0 +1,104 @@
+================================================================================
+GOOGLE CHAT WEBHOOK SUPPORT - QUICK REFERENCE
+================================================================================
+
+File Modified: ddec.py
+
+================================================================================
+CHANGE #1: Configuration Constant (Lines 192-195)
+================================================================================
+LOCATION: After TELEGRAM_URL definition
+
+ADDED:
+# Google Chat webhook options
+# Get help from https://developers.google.com/workspace/chat/quickstart/webhooks
+# Webhook URL for Google Chat Space
+GOOGLE_CHAT_WEBHOOK: str = os.getenv('GOOGLE_CHAT_WEBHOOK', '<INSERT YOUR WEBHOOK URL>')
+
+================================================================================
+CHANGE #2: CLI Arguments (Lines 1753-1765)
+================================================================================
+LOCATION: After --use-telegram argument, before --proxy argument
+
+ADDED:
+parent_group.add_argument(
+    '-g',
+    '--use-google-chat',
+    action='store_true',
+    default=False,
+    help='Send a warning message through Google Chat webhook (default is False)'
+)
+parent_group.add_argument(
+    '-w',
+    '--google-chat-webhook',
+    help='Google Chat webhook URL (default is None)',
+    metavar='URL'
+)
+
+================================================================================
+CHANGE #3: Send Function (Lines 1083-1109)
+================================================================================
+LOCATION: After send_telegram() function
+
+ADDED: Complete send_google_chat() function (27 lines)
+
+================================================================================
+CHANGE #4: Report Function (Lines 1112-1295)
+================================================================================
+LOCATION: After send_google_chat() function, before make_report_for_email()
+
+ADDED: Complete make_report_for_google_chat() function (184 lines)
+
+================================================================================
+CHANGE #5: CLI Validation (Lines 3054-3077)
+================================================================================
+LOCATION: In check_cli_logic() function
+
+MODIFIED: Line 3055
+OLD: (not CLI.use_telegram) and (not CLI.email_to)):
+NEW: (not CLI.use_telegram) and (not CLI.email_to) and (not CLI.use_google_chat)):
+
+MODIFIED: Line 3058-3059
+OLD: f'(email, telegram or console)\n'
+     f'Use --print-to-console or --email-to or/and --use-telegram'
+NEW: f'(email, telegram, google chat or console)\n'
+     f'Use --print-to-console or --email-to or/and --use-telegram or/and --use-google-chat'
+
+ADDED: Lines 3063-3077 (Validation for Google Chat options)
+
+================================================================================
+CHANGE #6: Main Function Call (Lines 3352-3353)
+================================================================================
+LOCATION: In main() function, after if CLI.use_telegram block
+
+ADDED:
+if CLI.use_google_chat:
+    make_report_for_google_chat()
+
+================================================================================
+USAGE EXAMPLES
+================================================================================
+
+1. Basic usage with webhook URL:
+   python3 ddec.py -f domains.txt -g -w "https://chat.googleapis.com/v1/spaces/XXX/messages?key=YYY&token=ZZZ"
+
+2. Using environment variable:
+   export GOOGLE_CHAT_WEBHOOK="https://chat.googleapis.com/v1/spaces/..."
+   python3 ddec.py -f domains.txt -g
+
+3. Combined with other notifications:
+   python3 ddec.py -f domains.txt -e user@email.com -t -g -w "https://..."
+
+4. Test single domain:
+   python3 ddec.py -d aikyam.school -g -w "https://..."
+
+================================================================================
+LINE COUNTS
+================================================================================
+
+Total Lines Added:   ~230 lines
+Total Lines Modified: ~10 lines
+Functions Added:      2 (send_google_chat, make_report_for_google_chat)
+CLI Arguments Added:  2 (-g/--use-google-chat, -w/--google-chat-webhook)
+
+================================================================================

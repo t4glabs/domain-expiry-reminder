@@ -263,6 +263,13 @@ UNSUPPORTED_DOMAINS: Tuple = (
     '.au',
 )
 
+# RDAP-based TLDs configuration
+# TLDs that require RDAP instead of traditional WHOIS
+RDAP_TLDS: Dict[str, str] = {
+    '.school': 'https://rdap.identitydigital.services/rdap/domain/',
+    '.fund': 'https://rdap.identitydigital.services/rdap/domain/',
+}
+
 # Command for external whois
 if sys.platform == 'win32':
     WHOIS_COMMAND: str = f'{pathname}{SEP}winbin{SEP}whois-cygwin64{SEP}whois.exe'
@@ -796,6 +803,66 @@ def parse_whois_data(domain: str, domain_group: str, whois_data: str) -> Tuple:
                     whois_server = line.partition(': ')[2].strip()
 
     return raw_whois_data, expiration_date, registrar, whois_server, ret_error
+
+
+def query_rdap(domain: str, rdap_url: str) -> Tuple:
+    """
+    Query domain information via RDAP (Registration Data Access Protocol)
+    :param domain: str - domain name
+    :param rdap_url: str - base RDAP URL
+    :return: Tuple (whois_data, expiration_date, registrar, whois_server, ret_error)
+    """
+    try:
+        full_url = f"{rdap_url}{domain}"
+        response = requests.get(
+            full_url,
+            timeout=10,
+            headers=REQUEST_HEADERS,
+            verify=True,
+        )
+
+        if response.status_code == 404:
+            # Domain not found / available
+            return None, None, None, None, 11
+        elif response.status_code != 200:
+            return None, None, None, None, 1
+
+        data = response.json()
+
+        # Extract expiration date from events
+        expiration_date = None
+        for event in data.get('events', []):
+            if event.get('eventAction') == 'expiration':
+                date_str = event.get('eventDate')
+                if date_str:
+                    expiration_date = dateutil.parser.parse(date_str, ignoretz=True)
+                break
+
+        # Extract registrar from entities
+        registrar = None
+        for entity in data.get('entities', []):
+            if 'registrar' in entity.get('roles', []):
+                registrar = entity.get('vcardArray', [[]])[1]
+                # Parse vCard format to extract organization name
+                for vcard_entry in registrar:
+                    if isinstance(vcard_entry, list) and len(vcard_entry) > 0:
+                        if vcard_entry[0] == 'fn':
+                            registrar = vcard_entry[3]
+                            break
+                break
+
+        # Use RDAP endpoint as whois_server
+        whois_server = rdap_url.replace('/rdap/domain/', '')
+
+        # Store JSON as whois_data
+        whois_data = json.dumps(data, indent=2)
+
+        return whois_data, expiration_date, registrar, whois_server, None
+
+    except requests.exceptions.RequestException:
+        return None, None, None, None, 1
+    except Exception:
+        return None, None, None, None, 1
 
 
 def calculate_expiration_days(expiration_date: datetime) -> int:
@@ -2556,7 +2623,30 @@ def check_domain(domain_name: str,
 
     whois_data: Optional[str] = None
 
-    if CLI.use_only_external_whois:
+    # Check if domain uses RDAP
+    rdap_url = None
+    for tld, url in RDAP_TLDS.items():
+        if domain_name.lower().endswith(tld):
+            rdap_url = url
+            break
+
+    if rdap_url:
+        # Use RDAP query
+        (
+            whois_data,
+            expiration_date,
+            registrar,
+            whois_server,
+            ret_error
+        ) = query_rdap(
+            domain=domain_name,
+            rdap_url=rdap_url
+        )
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        # Init colorama again
+        init(autoreset=True)
+    elif CLI.use_only_external_whois:
         (
             whois_data,
             expiration_date,

@@ -121,3 +121,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Personal domain lists (keep domains-ex.txt as template only)
+aikyam.txt
+
+# Whois cache directory
+ddec-cache/
+
+# macOS metadata
+.DS_Store

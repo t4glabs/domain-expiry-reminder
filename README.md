@@ -1,9 +1,12 @@
-# DNS Domain Expiration Checker from ak545
+# DNS Domain Expiration Checker
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
-**ddec.py** - This is a python script to check the expiration dates for the registration of your domains.
+> **This is a fork of [ak545/dns-domain-expiration-checker](https://github.com/ak545/dns-domain-expiration-checker) with additional fixes and improvements.**
+> Changes include: RDAP support for newer TLDs (`.school`, `.fund`), Google Chat webhook notifications, `.env`-based configuration, email bug fixes, and platform enable/disable toggles.
 
-This script develops the idea of another [DNS Domain Expiration Checker](https://github.com/Matty9191/dns-domain-expiration-checker), Author: Matty < matty91 at gmail dot com >
+**ddec_rdap.py** - Python script to check the expiration dates for the registration of your domains, with notifications via email, Telegram, and Google Chat.
+
+This script builds on [DNS Domain Expiration Checker by ak545](https://github.com/ak545/dns-domain-expiration-checker), which itself develops the idea of another [DNS Domain Expiration Checker](https://github.com/Matty9191/dns-domain-expiration-checker), Author: Matty < matty91 at gmail dot com >
 
 ## Screenshots
 ![](https://github.com/ak545/dns-domain-expiration-checker/raw/master/images/script.png)
@@ -330,7 +333,7 @@ Don't use option -oe/--use-only-external-whois with option -piw/--proxy-internal
 
 **-e EMAIL, --email-to EMAIL**
 
-Send a warning message to email address (default is None)
+Send a warning message to email address (default is None). Can also be set via the `EMAIL_TO` environment variable.
 Here you must specify the email address of the recipient.
 
 **-subject STRING, --email-subject STRING**
@@ -339,15 +342,44 @@ Append custom text to the email subject (default is None). This is an additional
 
 **-ssl, --email-ssl**
 
-Send email via SSL (default is False). This is an additional option for --email-to.
+Send email via SSL (port 465, default is False). This is an additional option for --email-to. Can also be set via `ENABLE_EMAIL_SSL=true` in `.env`. Mutually exclusive with `-starttls`.
 
 **-auth, --email-auth**
 
-Send email via authenticated SMTP (default is False). This is an additional option for --email-to.
+Send email via authenticated SMTP (default is False). Required for Gmail, Mailgun, and most hosted providers. Can also be set via `ENABLE_EMAIL_AUTH=true` in `.env`.
 
 **-starttls, --email-starttls**
 
-Send email via STARTTLS (default is False). This is an additional option for --email-to.
+Send email via STARTTLS (port 587, default is False). This is an additional option for --email-to. Can also be set via `ENABLE_EMAIL_STARTTLS=true` in `.env`. Mutually exclusive with `-ssl`.
+
+#### Email provider setup
+
+**Gmail** (requires a Google App Password — plain Gmail passwords are rejected since May 2022):
+1. Enable 2-Step Verification on your Google account.
+2. Go to myaccount.google.com → Security → App Passwords, generate a 16-character password.
+3. Set in `.env`:
+```
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SENDER=you@gmail.com
+SMTP_PASSWORD=<16-char app password>
+EMAIL_TO=recipient@example.com
+ENABLE_EMAIL_STARTTLS=true
+ENABLE_EMAIL_AUTH=true
+```
+Or via CLI: `python3 ddec_rdap.py -f domains.txt -e recipient@example.com -starttls -auth`
+
+**Mailgun** (SMTP credentials from your Mailgun Sending Domains page):
+```
+SMTP_SERVER=smtp.mailgun.org
+SMTP_PORT=587
+SMTP_SENDER=postmaster@mg.yourdomain.com
+SMTP_PASSWORD=<Mailgun SMTP password>
+EMAIL_TO=recipient@example.com
+ENABLE_EMAIL_STARTTLS=true
+ENABLE_EMAIL_AUTH=true
+```
+Or via CLI: `python3 ddec_rdap.py -f domains.txt -e recipient@example.com -starttls -auth`
 
 **-oe, --use-only-external-whois**
 
@@ -561,92 +593,114 @@ Samples:
 If --expire-days (or a similar value in the file of domain name lists) is 60 days, then 81 days before the end of the domain registration period (60 + 21), this domain will be in the "Soon" category.
 
 ## How to add a script to Linux cron
-To do this, create a **crontab** task that will be executed, for example, every midnight on behalf of the user (creating tasks as root is not the best idea):
 
-Suppose your Linux username is: **user**
+### Step 1 — Find your Python path
 
-Your home folder: **/home/user**
-
-The folder where this script is located: **/home/user/py**
-
-To run the script directly, run the command:
-```console
-$ chmod +x /home/user/py/ddec.py
-```
-
-Adjust in the first line of the script [Shebang (Unix)](https://en.wikipedia.org/wiki/Shebang_(Unix)), eg:
-
-Show the path where python is located:
-```console
-$ which python
-```
-or
 ```console
 $ which python3
 ```
-Correction python path in Shebang:
+Typical output on Ubuntu VPS: `/usr/bin/python3`
 
-```python
-#!/usr/bin/python
-#!/usr/bin/python3
-#!/usr/bin/env python
-#!/usr/bin/env python3
-```
-
-Rename script:
+### Step 2 — Make the script executable
 
 ```console
-$ mv /home/user/py/ddec.py /home/user/py/ddec
+$ chmod +x /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py
 ```
-Check script launch:
+
+### Step 3 — Verify it runs
 
 ```console
-$ /home/user/py/ddec -h
-$ /home/user/py/./ddec -h
+$ /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -h
 ```
-If everything is fine, run the editor **crontab**, if not, go back to setting **Shebang**:
+
+### Step 4 — Open the crontab editor
 
 ```console
-$ crontab -u user -e
+$ crontab -u ubuntu -e
 ```
-Here **user** - is your Linux login
 
-If you, like me, do not like vim (I have not seen a single person who is fluent in this editor, although it probably exists somewhere), you can edit the tasks in your favorite editor, for example:
+To use nano instead of vim:
+```console
+$ EDITOR=nano crontab -u ubuntu -e
+```
+
+### Step 5 — Add one of the crontab lines below
+
+Do **not** use `-c` (print to console) or `-l` (long format) in cron — they produce no useful output when redirected to `/dev/null`.
+
+---
+
+#### Crontab schedule reference
+
+| Schedule | Meaning |
+|---|---|
+| `0 0 * * *` | Every day at midnight |
+| `0 0 */3 * *` | Every 3 days at midnight |
+| `0 8 * * *` | Every day at 8 AM |
+| `0 8 * * 1` | Every Monday at 8 AM |
+
+---
+
+#### Option A — Google Chat only (recommended)
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -ee -i 10 >/dev/null 2>&1
+```
+
+#### Option B — Telegram only
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -t -trim -split -ee -i 10 >/dev/null 2>&1
+```
+
+#### Option C — Email only (Gmail / Mailgun via .env)
+
+Requires `EMAIL_TO`, `SMTP_*`, `ENABLE_EMAIL_STARTTLS=true`, `ENABLE_EMAIL_AUTH=true` set in `.env`.
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -ee -i 10 >/dev/null 2>&1
+```
+
+Or passing email flags explicitly:
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -e you@gmail.com -starttls -auth -ee -i 10 >/dev/null 2>&1
+```
+
+#### Option D — All three (Email + Telegram + Google Chat)
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -t -trim -split -e you@gmail.com -starttls -auth -ee -i 10 >/dev/null 2>&1
+```
+
+#### Option E — Log to file instead of /dev/null (useful for debugging)
+
+```
+0 0 */3 * * /usr/bin/python3 /home/ubuntu/dns-domain-expiration-checker/ddec_rdap.py -nb -f /home/ubuntu/dns-domain-expiration-checker/aikyam.txt -g -ee -i 10 >> /var/log/domain-check.log 2>&1
+```
+
+---
+
+### Step 6 — Verify your crontab was saved
 
 ```console
-$ EDITOR=nano crontab -u user -e
-$ EDITOR=mcedit crontab -u user -e
+$ crontab -u ubuntu -l
 ```
-or
+
+### Useful crontab commands
 
 ```console
-$ VISUAL=nano crontab -u user -e
-$ VISUAL=mcedit crontab -u user -e
+# View current crontab
+$ crontab -u ubuntu -l
+
+# Edit crontab
+$ crontab -u ubuntu -e
+
+# Remove all cron jobs for the user
+$ crontab -u ubuntu -r
 ```
-
-In the task editor, create something like this (do not use keys **--print-to-console** and **--long-format**):
-
-`0 0 * * * /home/user/py/ddec -nb -f /home/user/data/domains0.txt -twtc -i 5 -t -split -e user@gmail.com -ee >/dev/null 2>&1`
-
-or
-
-`0 0 * * * /home/user/py/./ddec -nb -f /home/user/data/domains0.txt -twtc -i 5 -t -split -e user@gmail.com -ee >/dev/null 2>&1`
-
-
-Specify the full paths to the data file and the script.
 
 Note: [cron](https://en.wikipedia.org/wiki/Cron)
-
-You can view created tasks for user **user** like this:
-
-```console
-$ crontab -u user -l
-```
-Delete all tasks from user **user**, you can:
-
-```console
-$ crontab -u user -r
-```
 ## How to add a script to Microsoft Windows Task Scheduler
 Ask for help to [documentation](https://docs.microsoft.com/en-us/windows/desktop/taskschd/schtasks)
 
